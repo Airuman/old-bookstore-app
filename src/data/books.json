@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "title": "星の王子さま",
+    "author": "サン＝テグジュペリ",
+    "year": 1943,
+    "location": "A-1",
+    "status": "貸出可",
+    "thumbnail": "https://placehold.co/120x160?text=Book",
+    "description": "大人と子どもの心をつなぐ名作。"
+  },
+  {
+    "id": 2,
+    "title": "こころ",
+    "author": "夏目漱石",
+    "year": 1914,
+    "location": "B-3",
+    "status": "貸出中",
+    "thumbnail": "https://placehold.co/120x160?text=Book",
+    "description": "人間の内面を描いた日本近代文学の代表作。"
+  }
+]
