@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>図書管理システム | LibraryOS</title>
+  <meta name="description" content="学校の本棚の貸し出し状況管理・書籍検索ができるシステム。Excelファイルを読み込んで書籍の状況をリアルタイムで確認できます。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Animated Background -->
+  <div class="bg-animation">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="header" id="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">LibraryOS</span>
+          <span class="logo-sub">図書管理システム</span>
+        </div>
+      </div>
+      <nav class="nav-tabs">
+        <button class="nav-tab active" id="tab-dashboard" onclick="showTab('dashboard')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          ダッシュボード
+        </button>
+        <button class="nav-tab" id="tab-books" onclick="showTab('books')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          蔵書一覧
+        </button>
+        <button class="nav-tab" id="tab-lending" onclick="showTab('lending')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          貸出中
+        </button>
+        <button class="nav-tab admin-only" id="tab-import" onclick="showTab('import')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          データ取込
+        </button>
+      </nav>
+      <div class="header-actions">
+        <div class="role-switcher" id="role-switcher">
+          <button class="role-btn active" id="role-admin" onclick="setRole('admin')" title="管理者モード">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            管理者
+          </button>
+          <button class="role-btn" id="role-user" onclick="setRole('user')" title="利用者モード">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            利用者
+          </button>
+        </div>
+        <div class="data-status" id="data-status">
+          <div class="status-dot inactive"></div>
+          <span>データ未読込</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- Dashboard Tab -->
+    <section class="tab-content active" id="content-dashboard">
+      <div class="page-header">
+        <h1 class="page-title">ダッシュボード</h1>
+        <p class="page-subtitle">図書館の貸し出し状況の概要</p>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card" id="stat-total">
+          <div class="stat-icon" style="--icon-color: #6366f1;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-total-value">—</div>
+            <div class="stat-label">総蔵書数</div>
+          </div>
+          <div class="stat-trend"></div>
+        </div>
+        <div class="stat-card" id="stat-available">
+          <div class="stat-icon" style="--icon-color: #10b981;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-available-value">—</div>
+            <div class="stat-label">貸出可能</div>
+          </div>
+        </div>
+        <div class="stat-card" id="stat-lent">
+          <div class="stat-icon" style="--icon-color: #f59e0b;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-lent-value">—</div>
+            <div class="stat-label">貸出中</div>
+          </div>
+        </div>
+        <div class="stat-card" id="stat-overdue">
+          <div class="stat-icon" style="--icon-color: #ef4444;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-overdue-value">—</div>
+            <div class="stat-label">返却期限超過</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <h3 class="chart-title">ジャンル別蔵書数</h3>
+          <div class="chart-container" id="genre-chart">
+            <div class="chart-placeholder">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <p>Excelデータを読み込んでください</p>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3 class="chart-title">貸出状況の割合</h3>
+          <div class="chart-container" id="status-chart">
+            <div class="chart-placeholder">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <p>Excelデータを読み込んでください</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="recent-card">
+        <div class="recent-header">
+          <h3 class="chart-title">最近の貸出</h3>
+        </div>
+        <div id="recent-list">
+          <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <p>データを読み込むと貸出状況が表示されます</p>
+            <button class="btn-primary" onclick="showTab('import')">データを読み込む</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Books Tab -->
+    <section class="tab-content" id="content-books">
+      <div class="page-header page-header-row">
+        <div>
+          <h1 class="page-title">蔵書一覧</h1>
+          <p class="page-subtitle">全書籍の検索・閲覧・追加・編集</p>
+        </div>
+        <div class="page-header-actions">
+          <button class="btn-secondary admin-only" id="btn-export" onclick="exportToExcel()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excelエクスポート
+          </button>
+          <button class="btn-primary admin-only" id="btn-add-book" onclick="openBookForm(null)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            本を追加
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-section">
+        <div class="search-bar">
+          <div class="search-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <input type="text" id="search-input" class="search-input" placeholder="書名・著者名・ISBN・ジャンルで検索..." oninput="handleSearch()" />
+          <button class="search-clear" id="search-clear" onclick="clearSearch()" style="display:none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="filter-chips">
+          <button class="filter-chip active" id="filter-all" onclick="filterBooks('all')">すべて</button>
+          <button class="filter-chip" id="filter-available" onclick="filterBooks('available')">
+            <span class="chip-dot available"></span>貸出可能
+          </button>
+          <button class="filter-chip" id="filter-lent" onclick="filterBooks('lent')">
+            <span class="chip-dot lent"></span>貸出中
+          </button>
+          <button class="filter-chip" id="filter-overdue" onclick="filterBooks('overdue')">
+            <span class="chip-dot overdue"></span>期限超過
+          </button>
+        </div>
+        <div class="search-results-info" id="search-results-info"></div>
+      </div>
+
+      <!-- Books Table -->
+      <div class="table-wrapper">
+        <table class="books-table" id="books-table">
+          <thead>
+            <tr>
+              <th onclick="sortTable('id')" class="sortable">
+                管理番号 <span class="sort-icon" id="sort-id">↕</span>
+              </th>
+              <th onclick="sortTable('title')" class="sortable">
+                書名 <span class="sort-icon" id="sort-title">↕</span>
+              </th>
+              <th onclick="sortTable('author')" class="sortable">
+                著者名 <span class="sort-icon" id="sort-author">↕</span>
+              </th>
+              <th onclick="sortTable('genre')" class="sortable">
+                ジャンル <span class="sort-icon" id="sort-genre">↕</span>
+              </th>
+              <th>ISBN</th>
+              <th onclick="sortTable('status')" class="sortable">
+                状態 <span class="sort-icon" id="sort-status">↕</span>
+              </th>
+              <th onclick="sortTable('dueDate')" class="sortable">
+                返却期限 <span class="sort-icon" id="sort-dueDate">↕</span>
+              </th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="books-tbody">
+            <tr>
+              <td colspan="8" class="table-empty">
+                <div class="empty-state">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                  <p>Excelファイルを読み込むと蔵書一覧が表示されます</p>
+                  <button class="btn-primary" onclick="showTab('import')">データを読み込む</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination" id="pagination"></div>
+    </section>
+
+    <!-- Lending Tab -->
+    <section class="tab-content" id="content-lending">
+      <div class="page-header">
+        <h1 class="page-title">貸出中の書籍</h1>
+        <p class="page-subtitle">現在貸出中の書籍と返却状況</p>
+      </div>
+
+      <div class="lending-filters">
+        <button class="filter-chip active" id="lend-filter-all" onclick="filterLending('all')">すべて</button>
+        <button class="filter-chip" id="lend-filter-overdue" onclick="filterLending('overdue')">
+          <span class="chip-dot overdue"></span>期限超過のみ
+        </button>
+        <button class="filter-chip" id="lend-filter-soon" onclick="filterLending('soon')">
+          <span class="chip-dot soon"></span>返却期限まで3日以内
+        </button>
+      </div>
+
+      <div class="lending-grid" id="lending-grid">
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <p>データを読み込むと貸出中の書籍が表示されます</p>
+          <button class="btn-primary" onclick="showTab('import')">データを読み込む</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Import Tab -->
+    <section class="tab-content" id="content-import">
+      <div class="page-header">
+        <h1 class="page-title">データ取込</h1>
+        <p class="page-subtitle">Excelファイルから蔵書データを読み込みます</p>
+      </div>
+
+      <!-- Upload Zone -->
+      <div class="upload-zone" id="upload-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <div class="upload-icon">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <h2 class="upload-title">Excelファイルをドロップ</h2>
+        <p class="upload-subtitle">または</p>
+        <label class="btn-upload" for="file-input">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          ファイルを選択
+        </label>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleFileSelect(event)" />
+        <p class="upload-formats">.xlsx / .xls / .csv に対応</p>
+      </div>
+
+      <!-- Format Guide -->
+      <div class="format-guide">
+        <div class="guide-header">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <h3>Excelファイルのフォーマット</h3>
+        </div>
+        <p class="guide-desc">以下の列を含むExcelファイルを用意してください（1行目はヘッダー行）</p>
+        <div class="format-table-wrapper">
+          <table class="format-table">
+            <thead>
+              <tr>
+                <th>列名（例）</th>
+                <th>内容</th>
+                <th>必須</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>管理番号 / ID</td><td>書籍の管理番号</td><td><span class="required-badge">必須</span></td></tr>
+              <tr><td>書名 / タイトル / Title</td><td>書籍のタイトル</td><td><span class="required-badge">必須</span></td></tr>
+              <tr><td>著者名 / 著者 / Author</td><td>著者・作者名</td><td><span class="optional-badge">任意</span></td></tr>
+              <tr><td>ジャンル / 分類</td><td>書籍のジャンル・分類</td><td><span class="optional-badge">任意</span></td></tr>
+              <tr><td>ISBN</td><td>ISBN番号</td><td><span class="optional-badge">任意</span></td></tr>
+              <tr><td>状態 / ステータス / Status</td><td>貸出可 / 貸出中 / 返却期限超過</td><td><span class="required-badge">必須</span></td></tr>
+              <tr><td>借りた人 / 借受者</td><td>借りている生徒・教員名</td><td><span class="optional-badge">任意</span></td></tr>
+              <tr><td>貸出日 / 借出日</td><td>貸し出しを行った日付</td><td><span class="optional-badge">任意</span></td></tr>
+              <tr><td>返却期限 / 返却日</td><td>返却予定日</td><td><span class="optional-badge">任意</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <button class="btn-secondary" onclick="downloadSample()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          サンプルExcelをダウンロード
+        </button>
+      </div>
+
+      <!-- Import Progress -->
+      <div class="import-progress" id="import-progress" style="display:none;">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="progress-text" id="progress-text">読み込み中...</p>
+      </div>
+
+      <!-- Import Result -->
+      <div class="import-result" id="import-result" style="display:none;"></div>
+    </section>
+
+  </main>
+
+  <!-- Book Detail Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+    <div class="modal" id="book-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-title">書籍詳細</h2>
+        <button class="modal-close" onclick="closeModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Book Form Modal -->
+  <div class="modal-overlay" id="form-overlay" onclick="closeBookForm()">
+    <div class="modal modal-lg" id="book-form-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title" id="form-modal-title">本を追加</h2>
+        <button class="modal-close" onclick="closeBookForm()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="book-form" onsubmit="submitBookForm(event)">
+          <input type="hidden" id="form-book-idx" value="" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="form-id">管理番号 <span class="required-badge">必須</span></label>
+              <input class="form-input" type="text" id="form-id" placeholder="例: B001" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-status">状態 <span class="required-badge">必須</span></label>
+              <select class="form-input" id="form-status" onchange="toggleBorrowerFields()">
+                <option value="available">貸出可能</option>
+                <option value="lent">貸出中</option>
+                <option value="overdue">返却期限超過</option>
+              </select>
+            </div>
+            <div class="form-group form-group-full">
+              <label class="form-label" for="form-title">書名 <span class="required-badge">必須</span></label>
+              <input class="form-input" type="text" id="form-title" placeholder="書籍のタイトルを入力" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-author">著者名</label>
+              <input class="form-input" type="text" id="form-author" placeholder="例: 夏目漱石" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-genre">ジャンル</label>
+              <input class="form-input" type="text" id="form-genre" placeholder="例: 小説、理数、歴史" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-isbn">ISBN</label>
+              <input class="form-input" type="text" id="form-isbn" placeholder="978-4-XXXXXXXXX-X" />
+            </div>
+            <div class="form-group" id="borrower-group">
+              <label class="form-label" for="form-borrower">借りた人</label>
+              <input class="form-input" type="text" id="form-borrower" placeholder="氏名を入力" />
+            </div>
+            <div class="form-group" id="lend-date-group">
+              <label class="form-label" for="form-lend-date">貸出日</label>
+              <input class="form-input" type="date" id="form-lend-date" />
+            </div>
+            <div class="form-group" id="due-date-group">
+              <label class="form-label" for="form-due-date">返却期限</label>
+              <input class="form-input" type="date" id="form-due-date" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="closeBookForm()">キャンセル</button>
+            <button type="submit" class="btn-primary" id="form-submit-btn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              保存する
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay" id="delete-overlay" onclick="closeDeleteConfirm()">
+    <div class="modal modal-sm" id="delete-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">削除の確認</h2>
+        <button class="modal-close" onclick="closeDeleteConfirm()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px">「<strong id="delete-book-title"></strong>」を削除しますか？この操作は取り消せません。</p>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="closeDeleteConfirm()">キャンセル</button>
+          <button class="btn-danger" onclick="confirmDelete()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            削除する
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Cart FAB -->
+  <button id="cart-fab" onclick="openCartModal()" style="display:none;position:fixed;bottom:32px;right:32px;z-index:150;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));border:none;color:white;cursor:pointer;box-shadow:0 6px 24px rgba(99,102,241,0.45);align-items:center;justify-content:center;flex-direction:column;gap:2px;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+    <span id="cart-fab-count" style="font-size:11px;font-weight:700;line-height:1">0</span>
+  </button>
+
+  <!-- Cart Modal -->
+  <div class="modal-overlay" id="cart-modal-overlay" onclick="closeCartModal()">
+    <div class="modal modal-lg" onclick="event.stopPropagation()" style="max-height:85vh;display:flex;flex-direction:column">
+      <div class="modal-header" style="flex-shrink:0">
+        <h2 class="modal-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          リスト
+        </h2>
+        <button class="modal-close" onclick="closeCartModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div id="cart-modal-body" style="overflow-y:auto;padding:24px;flex:1"></div>
+      <div id="cart-modal-footer" style="padding:16px 24px;border-top:1px solid var(--border-soft);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0"></div>
+    </div>
+  </div>
+
+  <!-- Checkout Modal -->
+  <div class="modal-overlay" id="checkout-overlay" onclick="closeCheckoutModal()">
+    <div class="modal modal-sm" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title" id="checkout-title">本を借りる</h2>
+        <button class="modal-close" onclick="closeCheckoutModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="checkout-body"></div>
+        <div class="form-actions" style="margin-top:12px">
+          <button class="btn-secondary" onclick="closeCheckoutModal()">キャンセル</button>
+          <button class="btn-primary" id="checkout-submit" onclick="confirmCheckout()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            今すぐ借りる
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .cart-section{margin-bottom:20px}.cart-section:last-child{margin-bottom:0}
+    .cart-section-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--primary);margin-bottom:12px}
+    .cart-items{display:flex;flex-direction:column;gap:8px}
+    .cart-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-sm)}
+    .cart-item-icon{font-size:20px;flex-shrink:0}
+    .cart-item-info{flex:1;min-width:0}
+    .cart-item-title{font-size:13px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cart-item-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+    .cart-item-remove{width:28px;height:28px;border-radius:50%;border:none;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s,color 0.15s}
+    .cart-item-remove:hover{background:var(--danger-pale);color:var(--danger)}
+    .checkout-book-list{background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:18px;display:flex;flex-direction:column;gap:7px}
+    .checkout-book-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary)}
+  </style>
+
+  <!-- Admin Password Modal -->
+  <div class="modal-overlay" id="admin-pw-overlay" onclick="closeAdminPwModal()">
+    <div class="modal modal-sm" id="admin-pw-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          管理者認証
+        </h2>
+        <button class="modal-close" onclick="closeAdminPwModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px">管理者モードに切り替えるにはパスワードを入力してください。</p>
+        <div class="form-group" style="margin-bottom:8px">
+          <label class="form-label" for="admin-pw-input">パスワード</label>
+          <input class="form-input" type="password" id="admin-pw-input"
+            placeholder="パスワードを入力"
+            onkeydown="if(event.key==='Enter')confirmAdminPw()" />
+        </div>
+        <p id="admin-pw-error" style="color:var(--danger);font-size:12px;min-height:18px;margin-bottom:12px"></p>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="closeAdminPwModal()">キャンセル</button>
+          <button class="btn-primary" onclick="confirmAdminPw()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            認証する
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="crud.js"></script>
+  <script src="role.js"></script>
+</body>
+</html>
