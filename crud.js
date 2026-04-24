@@ -64,40 +64,6 @@ function importFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
-// ===== ユーザーファイルインポート (users.xlsx) =====
-function importUsersFile(file) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (!['xlsx','xls','csv'].includes(ext)) {
-    showUserImportResult('error', '❌ 対応していないファイル形式です（.xlsx / .xls / .csv）');
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      const result = importUsersFromSheet(rows);
-      if (!result.ok) { showUserImportResult('error', '❌ ' + result.msg); return; }
-      showUserImportResult('success', `✅ ${result.count} 名のユーザーを読み込みました`);
-      renderUsersPanel();
-      showToast(`${result.count} 名読み込み完了`, 'success');
-    } catch (err) {
-      showUserImportResult('error', '❌ 読み込みに失敗しました: ' + err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function showUserImportResult(type, msg) {
-  const el = document.getElementById('users-import-result');
-  if (!el) return;
-  el.style.display = 'block';
-  el.className = 'import-result ' + type;
-  el.textContent = msg;
-}
-
 // ===== 書籍テーブル描画: 管理者用アクションボタン付き =====
 // 修正: renderBooksTable を上書きするのをやめ、renderBooksTableAdmin() として独立定義
 //       role.js の renderBooksTableForRole() から呼び分ける

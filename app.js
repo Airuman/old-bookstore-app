@@ -523,29 +523,3 @@ function downloadSample() {
   XLSX.writeFile(wb, '図書管理テンプレート.xlsx');
   showToast('テンプレートをダウンロードしました', 'success');
 }
-
-// ===== ユーザーファイル ドロップ =====
-function handleUsersDrop(e) {
-  e.preventDefault();
-  document.getElementById('users-upload-zone')?.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) importUsersFile(file);
-}
-
-// ===== ユーザーサンプルExcelダウンロード =====
-function downloadUsersSample() {
-  const ws_data = [
-    ['ID', '名前'],
-    ['U001', '田中 太郎'],
-    ['U002', '佐藤 花子'],
-    ['U003', '鈴木 一郎'],
-    ['U004', '高橋 三郎'],
-    ['U005', '伊藤 次子'],
-  ];
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  ws['!cols'] = [{ wch: 8 }, { wch: 16 }];
-  XLSX.utils.book_append_sheet(wb, ws, 'ユーザー一覧');
-  XLSX.writeFile(wb, 'ユーザーテンプレート.xlsx');
-  showToast('ユーザーテンプレートをダウンロードしました', 'success');
-}
