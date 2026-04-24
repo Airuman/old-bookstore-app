@@ -51,6 +51,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           データ取込
         </button>
+        <button class="nav-tab admin-only" id="tab-users" onclick="showTab('users');renderUsersPanel()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          ユーザー管理
+        </button>
       </nav>
       <div class="header-actions">
         <div class="role-switcher" id="role-switcher">
@@ -67,6 +71,7 @@
           <div class="status-dot inactive"></div>
           <span>データ未読込</span>
         </div>
+        <div id="user-header-area" style="display:flex;align-items:center;gap:8px;flex-shrink:0"></div>
       </div>
     </div>
   </header>
@@ -344,6 +349,51 @@
       <div class="import-result" id="import-result" style="display:none;"></div>
     </section>
 
+
+    <!-- Users Tab -->
+    <section class="tab-content" id="content-users">
+      <div class="page-header">
+        <h1 class="page-title">ユーザー管理</h1>
+        <p class="page-subtitle">利用者アカウントの登録・削除</p>
+      </div>
+
+      <!-- Users Upload Zone -->
+      <div class="upload-zone" id="users-upload-zone" style="margin-bottom:20px"
+        ondrop="handleUsersDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave()">
+        <div class="upload-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h2 class="upload-title">users.xlsx をドロップ</h2>
+        <p class="upload-subtitle">または</p>
+        <label class="btn-upload" for="users-file-input">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          ファイルを選択
+        </label>
+        <input type="file" id="users-file-input" accept=".xlsx,.xls,.csv" style="display:none"
+          onchange="importUsersFile(this.files[0])" />
+        <p class="upload-formats">列：ID（番号）・名前（氏名）　形式：.xlsx / .xls / .csv</p>
+      </div>
+
+      <div class="import-result" id="users-import-result" style="display:none;margin-bottom:20px"></div>
+
+      <!-- サンプルダウンロード -->
+      <div style="margin-bottom:20px">
+        <button class="btn-secondary" onclick="downloadUsersSample()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          サンプルExcelをダウンロード
+        </button>
+      </div>
+
+      <!-- ユーザーリスト -->
+      <div class="format-guide">
+        <div class="guide-header">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <h3>登録済みユーザー</h3>
+        </div>
+        <div id="users-panel" style="margin-top:16px"></div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Book Detail Modal -->
@@ -450,7 +500,68 @@
   <!-- Toast Notification -->
   <div class="toast-container" id="toast-container"></div>
 
-  <!-- Cart FAB -->
+  <!-- Auth Modal (Login / Register) -->
+  <div class="modal-overlay" id="auth-overlay" onclick="closeAuthModal()">
+    <div class="modal modal-sm" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div style="display:flex;gap:4px;background:var(--bg);border-radius:50px;padding:3px;border:1px solid var(--border)">
+          <button id="auth-tab-login" class="role-btn active" onclick="switchAuthMode('login')">ログイン</button>
+          <button id="auth-tab-register" class="role-btn" onclick="switchAuthMode('register')">新規登録</button>
+        </div>
+        <button class="modal-close" onclick="closeAuthModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- Login form -->
+        <div id="auth-form-login">
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label" for="login-email">メールアドレス</label>
+            <input class="form-input" type="email" id="login-email" placeholder="example@email.com"
+              onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()" />
+          </div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label class="form-label" for="login-pw">パスワード</label>
+            <input class="form-input" type="password" id="login-pw" placeholder="パスワード"
+              onkeydown="if(event.key==='Enter')submitLogin()" />
+          </div>
+        </div>
+        <!-- Register form -->
+        <div id="auth-form-register" style="display:none">
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label" for="register-name">名前 <span class="required-badge">必須</span></label>
+            <input class="form-input" type="text" id="register-name" placeholder="例: 田中 太郎"
+              onkeydown="if(event.key==='Enter')document.getElementById('register-email').focus()" />
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label" for="register-email">メールアドレス <span class="required-badge">必須</span></label>
+            <input class="form-input" type="email" id="register-email" placeholder="example@email.com"
+              onkeydown="if(event.key==='Enter')document.getElementById('register-pw').focus()" />
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label" for="register-pw">パスワード <span class="required-badge">必須</span></label>
+            <input class="form-input" type="password" id="register-pw" placeholder="6文字以上"
+              onkeydown="if(event.key==='Enter')document.getElementById('register-pw2').focus()" />
+          </div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label class="form-label" for="register-pw2">パスワード（確認）</label>
+            <input class="form-input" type="password" id="register-pw2" placeholder="もう一度入力"
+              onkeydown="if(event.key==='Enter')submitRegister()" />
+          </div>
+        </div>
+        <p id="auth-error" style="color:var(--danger);font-size:12px;min-height:18px;margin:6px 0 10px"></p>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="closeAuthModal()">キャンセル</button>
+          <button class="btn-primary" id="auth-submit" onclick="submitLogin()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            ログイン
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- Cart FAB -->
   <button id="cart-fab" onclick="openCartModal()" style="display:none;position:fixed;bottom:32px;right:32px;z-index:150;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));border:none;color:white;cursor:pointer;box-shadow:0 6px 24px rgba(99,102,241,0.45);align-items:center;justify-content:center;flex-direction:column;gap:2px;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
     <span id="cart-fab-count" style="font-size:11px;font-weight:700;line-height:1">0</span>
@@ -542,8 +653,25 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="app.js"></script>
+  <script src="auth.js"></script>
   <script src="crud.js"></script>
   <script src="role.js"></script>
+
+  <style>
+    .user-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+    .user-avatar.sm{width:24px;height:24px;font-size:11px}
+    .user-name-label{font-size:13px;font-weight:600;color:var(--text-primary)}
+    .btn-logout{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:50px;border:1.5px solid var(--border);background:var(--bg);font-size:12px;color:var(--text-secondary);cursor:pointer;transition:var(--transition);font-family:inherit}
+    .btn-logout:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-pale)}
+    .user-list{display:flex;flex-direction:column;gap:8px}
+    .user-list-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-sm)}
+    .user-list-info{flex:1;display:flex;align-items:center;gap:10px}
+    .user-list-name{font-size:13px;font-weight:600;color:var(--text-primary)}
+    .user-list-id{font-size:11px;color:var(--text-muted);font-family:monospace}
+  </style>
 </body>
 </html>

@@ -1,13 +1,11 @@
 // ===== ロール管理 =====
 let currentRole = 'user';
 
-// 管理者パスワード（変更する場合はここを書き換えてください）
 const ADMIN_PASSWORD = 'admin1234';
 
-// ===== カート・返却リスト状態 =====
-const cart       = new Set(); // 借りたい本のインデックス
-const returnList = new Set(); // 返却したい本のインデックス
-let sessionName  = '';        // セッション中の利用者名（一度入力したら記憶）
+// ===== カート・返却リスト =====
+const cart       = new Set();
+const returnList = new Set();
 
 // ===== 初期化 =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,10 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== ロール切り替え =====
 function setRole(role) {
-  if (role === 'admin' && currentRole !== 'admin') {
-    openAdminPwModal();
-    return;
-  }
+  if (role === 'admin' && currentRole !== 'admin') { openAdminPwModal(); return; }
   applyRole(role);
 }
 
@@ -30,21 +25,22 @@ function applyRole(role) {
   document.body.classList.toggle('role-user',  role === 'user');
   document.body.classList.toggle('role-admin', role === 'admin');
   if (role === 'user') {
-    const importTab = document.getElementById('content-import');
-    if (importTab && importTab.classList.contains('active')) showTab('dashboard');
+    const t = document.getElementById('content-import');
+    if (t?.classList.contains('active')) showTab('dashboard');
   }
+  if (role === 'admin') renderUsersPanel();
   updateCartFab();
   applyFilters();
   if (role !== 'user') showToast('管理者モードに切替', 'info');
 }
 
-// ===== 管理者パスワードモーダル =====
+// ===== 管理者パスワード =====
 function openAdminPwModal() {
-  const input = document.getElementById('admin-pw-input');
-  input.value = '';
+  const i = document.getElementById('admin-pw-input');
+  i.value = '';
   document.getElementById('admin-pw-error').textContent = '';
   document.getElementById('admin-pw-overlay').classList.add('open');
-  setTimeout(() => input.focus(), 100);
+  setTimeout(() => i.focus(), 100);
 }
 function closeAdminPwModal() {
   document.getElementById('admin-pw-overlay').classList.remove('open');
@@ -52,46 +48,38 @@ function closeAdminPwModal() {
   document.getElementById('role-user').classList.add('active');
 }
 function confirmAdminPw() {
-  const input = document.getElementById('admin-pw-input');
-  if (input.value === ADMIN_PASSWORD) {
+  const i = document.getElementById('admin-pw-input');
+  if (i.value === ADMIN_PASSWORD) {
     document.getElementById('admin-pw-overlay').classList.remove('open');
     applyRole('admin');
   } else {
     document.getElementById('admin-pw-error').textContent = 'パスワードが正しくありません';
-    input.value = '';
-    input.focus();
+    i.value = ''; i.focus();
   }
 }
 
-// ===== テーブル描画（ロール切り替え入口） =====
+// ===== テーブル描画ルーター =====
 function renderBooksTable() {
-  if (currentRole === 'admin') {
-    renderBooksTableAdmin();
-  } else {
-    renderBooksTableUser();
-  }
+  currentRole === 'admin' ? renderBooksTableAdmin() : renderBooksTableUser();
 }
 
-// ===== 利用者モード テーブル描画 =====
+// ===== 利用者テーブル =====
 function renderBooksTableUser() {
   const tbody = document.getElementById('books-tbody');
   if (filteredBooks.length === 0) {
-    const msg = allBooks.length === 0 ? 'データを読み込むか、本を追加してください' : '検索結果がありません';
+    const msg = allBooks.length === 0 ? 'データを読み込んでください' : '検索結果がありません';
     tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><div class="empty-state">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <p>${msg}</p>
-    </div></td></tr>`;
+      <p>${msg}</p></div></td></tr>`;
     return;
   }
   const start = (currentPage - 1) * PAGE_SIZE;
-  const pageBooks = filteredBooks.slice(start, start + PAGE_SIZE);
-  tbody.innerHTML = pageBooks.map(b => {
+  tbody.innerHTML = filteredBooks.slice(start, start + PAGE_SIZE).map(b => {
     const idx = allBooks.indexOf(b);
     return buildRowHTML(b, idx, buildUserActions(b, idx));
   }).join('');
 }
 
-// 利用者アクションボタン
 function buildUserActions(b, idx) {
   if (b.status === 'available') {
     const inCart = cart.has(idx);
@@ -108,28 +96,24 @@ function buildUserActions(b, idx) {
       </button>`;
   }
   const inReturn = returnList.has(idx);
-  return `
-    <button class="btn-sm" onclick="toggleReturn(${idx})"
-      style="${inReturn
-        ? 'color:var(--danger);border-color:var(--danger);background:var(--danger-pale)'
-        : 'color:var(--success);border-color:var(--success);background:var(--success-pale)'}">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
-      ${inReturn ? 'リストから削除' : '返却リストへ'}
-    </button>`;
+  return `<button class="btn-sm" onclick="toggleReturn(${idx})"
+    style="${inReturn
+      ? 'color:var(--danger);border-color:var(--danger);background:var(--danger-pale)'
+      : 'color:var(--success);border-color:var(--success);background:var(--success-pale)'}">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+    ${inReturn ? 'リストから削除' : '返却リストへ'}
+  </button>`;
 }
 
-// ===== カート・返却リスト操作 =====
+// ===== カート操作 =====
 function toggleCart(idx) {
   if (cart.has(idx)) cart.delete(idx); else cart.add(idx);
-  updateCartFab();
-  applyFilters();
+  updateCartFab(); applyFilters();
 }
 function toggleReturn(idx) {
   if (returnList.has(idx)) returnList.delete(idx); else returnList.add(idx);
-  updateCartFab();
-  applyFilters();
+  updateCartFab(); applyFilters();
 }
-
 function updateCartFab() {
   const fab = document.getElementById('cart-fab');
   if (!fab) return;
@@ -138,72 +122,61 @@ function updateCartFab() {
   document.getElementById('cart-fab-count').textContent = total;
 }
 
-// ===== 今すぐ借りる（1冊） =====
+// ===== 今すぐ借りる =====
 function borrowNow(idx) {
   if (!allBooks[idx]) return;
   openCheckoutModal([idx]);
 }
 
 // ===== カートモーダル =====
-function openCartModal() {
-  renderCartModal();
-  document.getElementById('cart-modal-overlay').classList.add('open');
-}
-function closeCartModal() {
-  document.getElementById('cart-modal-overlay').classList.remove('open');
-}
+function openCartModal() { renderCartModal(); document.getElementById('cart-modal-overlay').classList.add('open'); }
+function closeCartModal() { document.getElementById('cart-modal-overlay').classList.remove('open'); }
 
 function renderCartModal() {
   const cartItems   = [...cart].map(i => ({ idx: i, book: allBooks[i] })).filter(x => x.book);
   const returnItems = [...returnList].map(i => ({ idx: i, book: allBooks[i] })).filter(x => x.book);
   let html = '';
-
   if (cartItems.length > 0) {
     html += `<div class="cart-section">
       <div class="cart-section-title">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
         借りる本（${cartItems.length}冊）
       </div>
-      <div class="cart-items">
-        ${cartItems.map(({ idx, book }) => `
-          <div class="cart-item">
-            <div class="cart-item-icon">📖</div>
-            <div class="cart-item-info">
-              <div class="cart-item-title">${esc(book.title)}</div>
-              <div class="cart-item-sub">${esc(book.author) || '著者不明'}${book.genre ? ' · ' + esc(book.genre) : ''}</div>
-            </div>
-            <button class="cart-item-remove" onclick="removeFromCart(${idx})">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>`).join('')}
+      <div class="cart-items">${cartItems.map(({ idx, book }) => `
+        <div class="cart-item">
+          <div class="cart-item-icon">📖</div>
+          <div class="cart-item-info">
+            <div class="cart-item-title">${esc(book.title)}</div>
+            <div class="cart-item-sub">${esc(book.author) || '著者不明'}${book.genre ? ' · ' + esc(book.genre) : ''}</div>
+          </div>
+          <button class="cart-item-remove" onclick="removeFromCart(${idx})">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>`).join('')}
       </div>
     </div>`;
   }
-
   if (returnItems.length > 0) {
     html += `<div class="cart-section">
       <div class="cart-section-title" style="color:var(--success)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
         返却する本（${returnItems.length}冊）
       </div>
-      <div class="cart-items">
-        ${returnItems.map(({ idx, book }) => `
-          <div class="cart-item">
-            <div class="cart-item-icon">📚</div>
-            <div class="cart-item-info">
-              <div class="cart-item-title">${esc(book.title)}</div>
-              <div class="cart-item-sub">${esc(book.borrower) || ''}${book.dueDate ? ' · 期限: ' + formatDate(book.dueDate) : ''}</div>
-            </div>
-            <button class="cart-item-remove" onclick="removeFromReturn(${idx})">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>`).join('')}
+      <div class="cart-items">${returnItems.map(({ idx, book }) => `
+        <div class="cart-item">
+          <div class="cart-item-icon">📚</div>
+          <div class="cart-item-info">
+            <div class="cart-item-title">${esc(book.title)}</div>
+            <div class="cart-item-sub">${esc(book.borrower) || ''}${book.dueDate ? ' · 期限: ' + formatDate(book.dueDate) : ''}</div>
+          </div>
+          <button class="cart-item-remove" onclick="removeFromReturn(${idx})">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>`).join('')}
       </div>
     </div>`;
   }
-
   document.getElementById('cart-modal-body').innerHTML = html;
-
   const footer = document.getElementById('cart-modal-footer');
   footer.innerHTML = '';
   if (cartItems.length > 0) {
@@ -222,29 +195,30 @@ function renderCartModal() {
 }
 
 function removeFromCart(idx) {
-  cart.delete(idx);
-  updateCartFab();
-  if (cart.size === 0 && returnList.size === 0) { closeCartModal(); }
-  else renderCartModal();
+  cart.delete(idx); updateCartFab();
+  if (cart.size === 0 && returnList.size === 0) closeCartModal(); else renderCartModal();
   applyFilters();
 }
 function removeFromReturn(idx) {
-  returnList.delete(idx);
-  updateCartFab();
-  if (cart.size === 0 && returnList.size === 0) { closeCartModal(); }
-  else renderCartModal();
+  returnList.delete(idx); updateCartFab();
+  if (cart.size === 0 && returnList.size === 0) closeCartModal(); else renderCartModal();
   applyFilters();
 }
 
-// ===== チェックアウトモーダル（名前・期限入力） =====
+// ===== チェックアウト =====
 let _checkoutIdxs = [];
 
 function openCheckoutModal(idxs) {
+  // ログインチェック
+  if (!currentUser) {
+    showToast('先にログインしてください', 'error');
+    openAuthModal('login');
+    return;
+  }
   _checkoutIdxs = idxs;
   closeCartModal();
   const isSingle = idxs.length === 1;
   const book = allBooks[idxs[0]];
-
   document.getElementById('checkout-title').textContent =
     isSingle ? `「${book?.title}」を借りる` : `${idxs.length}冊をまとめて借りる`;
 
@@ -257,26 +231,25 @@ function openCheckoutModal(idxs) {
       </div>`).join('')}</div>`;
   }
 
+  // ログイン済みユーザー名を表示（変更不可）
   document.getElementById('checkout-body').innerHTML = `
     ${listHTML}
     <div class="form-group" style="margin-bottom:14px">
-      <label class="form-label" for="checkout-name">あなたの名前 <span class="required-badge">必須</span></label>
-      <input class="form-input" type="text" id="checkout-name" placeholder="名前を入力" value="${esc(sessionName)}" />
+      <label class="form-label">借りる人</label>
+      <div style="padding:9px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:8px">
+        <div class="user-avatar sm">${esc([...currentUser.name].find(c=>c.trim())||'?')}</div>
+        ${esc(currentUser.name)}
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label" for="checkout-due">返却期限</label>
       <input class="form-input" type="date" id="checkout-due" value="${defaultDueDate()}" />
-    </div>
-    <p id="checkout-error" style="color:var(--danger);font-size:12px;min-height:16px;margin-top:4px"></p>`;
+    </div>`;
 
   document.getElementById('checkout-submit').textContent =
     isSingle ? '今すぐ借りる' : `${idxs.length}冊を借りる`;
-
   document.getElementById('checkout-overlay').classList.add('open');
-  setTimeout(() => {
-    const el = document.getElementById(sessionName ? 'checkout-due' : 'checkout-name');
-    el?.focus();
-  }, 100);
+  setTimeout(() => document.getElementById('checkout-due')?.focus(), 100);
 }
 
 function closeCheckoutModal() {
@@ -284,42 +257,31 @@ function closeCheckoutModal() {
 }
 
 function confirmCheckout() {
-  const name = document.getElementById('checkout-name')?.value?.trim();
-  if (!name) {
-    document.getElementById('checkout-error').textContent = '名前を入力してください';
-    document.getElementById('checkout-name')?.focus();
-    return;
-  }
-  sessionName = name;
+  if (!currentUser) { showToast('ログインが必要です', 'error'); return; }
   const dueVal  = document.getElementById('checkout-due')?.value;
   const dueDate = dueVal ? new Date(dueVal) : null;
   const today   = new Date(); today.setHours(0, 0, 0, 0);
-
   let borrowed = 0;
   _checkoutIdxs.forEach(idx => {
     const b = allBooks[idx];
     if (!b || b.status !== 'available') return;
-    b.borrower = name;
+    b.borrower = currentUser.name;
     b.lendDate = today;
     b.dueDate  = dueDate;
     if (dueDate) {
       const diff = Math.ceil((dueDate - today) / MS_PER_DAY);
       b.status = diff < 0 ? 'overdue' : diff <= 3 ? 'soon' : 'lent';
-    } else {
-      b.status = 'lent';
-    }
+    } else { b.status = 'lent'; }
     cart.delete(idx);
     borrowed++;
   });
-
   saveBooks();
   closeCheckoutModal();
   updateCartFab();
   applyFilters();
   updateDashboard();
-
   const title = allBooks[_checkoutIdxs[0]]?.title || '';
-  showToast(borrowed === 1 ? `「${title}」を貸出しました` : `${borrowed}冊を${name}さんに貸出しました`, 'success');
+  showToast(borrowed === 1 ? `「${title}」を貸出しました` : `${borrowed}冊を貸出しました`, 'success');
 }
 
 // ===== 一括返却 =====
@@ -327,31 +289,19 @@ function confirmReturnList() {
   const idxsCopy = [...returnList];
   let count = 0;
   idxsCopy.forEach(i => {
-    const b = allBooks[i];
-    if (!b) return;
+    const b = allBooks[i]; if (!b) return;
     b.status = 'available'; b.borrower = ''; b.lendDate = null; b.dueDate = null; b.rawStatus = 'available';
-    returnList.delete(i);
-    count++;
+    returnList.delete(i); count++;
   });
-  saveBooks();
-  closeCartModal();
-  updateCartFab();
-  applyFilters();
-  updateDashboard();
+  saveBooks(); closeCartModal(); updateCartFab(); applyFilters(); updateDashboard();
   showToast(`${count}冊を返却しました`, 'success');
 }
 
 function defaultDueDate() {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  return toInputDate(d);
+  const d = new Date(); d.setDate(d.getDate() + 14); return toInputDate(d);
 }
 
-// Escape キー
+// Escape
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    closeAdminPwModal();
-    closeCartModal();
-    closeCheckoutModal();
-  }
+  if (e.key === 'Escape') { closeAdminPwModal(); closeCartModal(); closeCheckoutModal(); }
 });
